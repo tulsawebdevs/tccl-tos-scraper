@@ -18,6 +18,10 @@ TCCL_TOS_PARAMS = {
     'searchorigarg': 'ta'
 }
 
+LOCALWIKI_HOST = os.getenv('LOCALWIKI_HOST', 'http://127.0.0.1:8000')
+LOCALWIKI_USERNAME = os.getenv('LOCALWIKI_USERNAME', None)
+LOCALWIKI_API_KEY = os.getenv('LOCALWIKI_API_KEY', None)
+
 
 def search_letter(letter):
     search_params = TCCL_TOS_PARAMS.copy()
@@ -42,7 +46,42 @@ def scrape_entries(soup):
 
 
 def copy_entry(entry_href):
-    pass
+    name = address = phone = website = ''
+
+    entry_content = cached_get_content(TCCL_TOS_HOST + entry_href)
+    soup = BeautifulSoup(entry_content)
+
+    name = find_data_by_label(soup, 'Agency Name')
+    address = find_data_by_label(soup, 'Address')
+    phone = find_data_by_label(soup, 'Phone/Fax')
+
+    linkTable = soup.find('table', 'bibLinks')
+    if linkTable:
+        website = linkTable.find('a')['href']
+
+    details = get_entry_details(soup)
+    print name, address, phone, website
+    print details
+
+
+def find_data_by_label(soup, label):
+    tag = soup.find('td', text=label)
+    data = tag.find_next_sibling('td', 'bibInfoData').text.strip()
+    return data
+
+
+def get_entry_details(soup):
+    details = {}
+    detail_table = soup.find_all('table', 'bibDetail')[1]
+    for row in detail_table.find_all('tr'):
+        label = row.find('td', 'bibInfoLabel')
+        data = row.find('td', 'bibInfoData').text.strip()
+        if label:
+            key = label.text.strip()
+            details[key] = [data,]
+        else:
+            details[key].append(data)
+    return details
 
 
 def cached_get_content(url, cache_timeout=3600):
@@ -66,5 +105,5 @@ def file_age(fn):
     return time.time() - os.stat(fn).st_mtime
 
 
-for letter in 'ab':
+for letter in 'b':
     search_letter(letter)
